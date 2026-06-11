@@ -78,7 +78,7 @@ class WSG32TCP:
                  ip: str = "192.168.1.201",
                  port: int = 1000,
                  timeout: float = 5.0,
-                 poll_hz: float = 50.0):
+                 poll_hz: float = 10.0):
         """
         ip       : gripper IP on the ghost subnet
         port     : GCL TCP port (always 1000)
@@ -106,6 +106,9 @@ class WSG32TCP:
         # Background polling thread
         self._poll_thread: threading.Thread | None = None
         self._polling = False
+
+        self._last_cmd_pos:      float | None = None
+        self._last_gripper_dir:  float | None = None    
 
     # ──────────────────────────────────────────────────────────────────────
     # Connection
@@ -353,26 +356,31 @@ class WSG32TCP:
         cmd = f"MOVE({position_mm:.2f})\n"
         return self._send_and_wait(cmd, "FIN MOVE")
 
-    def move_nonblocking(self, position_mm: float) -> None:
+    def move_nonblocking(self, position_mm: float, speed_mm_s: float = 400.0) -> None:
         """
         Send a MOVE command and return immediately WITHOUT waiting for FIN MOVE.
-
-        This is the correct call for teleoperation:
-        - The leader robot continuously streams new target positions.
-        - We fire each MOVE and immediately return so the ROS subscriber
-          can accept the next command.
-        - The gripper's internal controller tracks the target.
-        - The FIN MOVE response will arrive in the socket buffer later;
-          we intentionally do NOT read it here (it would accumulate but
-          the next MOVE resets gripper motion anyway).
-
-        WARNING: do not mix move_nonblocking() and move() in the same session
-        without flushing, because unread FIN MOVE bytes will accumulate.
-        Pick one mode and stick with it.
+        Uses STOP() only on direction reversal to allow mid-motion retargeting.
+        speed_mm_s: jaw speed in mm/s (WSG32 max ~400mm/s)
         """
         position_mm = self._clamp(position_mm)
-        cmd = f"MOVE({position_mm:.2f})\n"
-        self._send_raw(cmd)
+
+
+        # STOP only on direction reversal — prevents queuing in wrong direction
+        if self._last_cmd_pos is not None and self._last_gripper_dir is not None:
+            new_dir = position_mm - self._last_cmd_pos
+            if new_dir != 0 and self._last_gripper_dir != 0:
+                if (new_dir > 0) != (self._last_gripper_dir > 0):
+                    self._send_raw("STOP()\n")
+            if new_dir != 0:
+                self._last_gripper_dir = new_dir
+        else:
+            if self._last_cmd_pos is not None:
+                d = position_mm - self._last_cmd_pos
+                if d != 0:
+                    self._last_gripper_dir = d
+
+        self._last_cmd_pos = position_mm
+        self._send_raw(f"MOVE({position_mm:.1f},{speed_mm_s:.0f})\n")
 
     def release(self, open_mm: float = 10.0) -> bool:
         """

@@ -68,9 +68,9 @@ class WSG32Node(Node):
         self.declare_parameter('gripper_port',    1000)
         self.declare_parameter('gripper_name',    'wsg32')
         self.declare_parameter('max_pos_mm',      67.0)
-        self.declare_parameter('cmd_deadband_mm', 0.2)
-        self.declare_parameter('publish_hz',      50.0)
-        self.declare_parameter('use_feedback',    True)   # measured vs commanded pos
+        self.declare_parameter('cmd_deadband_mm', 0.0)
+        self.declare_parameter('publish_hz',      5.0)
+        self.declare_parameter('use_feedback',    False)   # measured vs commanded pos
 
         ip              = self.get_parameter('gripper_ip').value
         port            = self.get_parameter('gripper_port').value

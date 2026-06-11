@@ -22,18 +22,19 @@ wsg32_node:
     # ── Motion limits ─────────────────────────────────────────────────────
     # WSG 32 stroke = 55 mm (each jaw travels ~27.5 mm from center).
     # Double-check on your unit: Settings → System Info in web UI.
-    max_pos_mm: 55.0
+    max_pos_mm: 67.0
 
     # ── Deadband ──────────────────────────────────────────────────────────
     # Ignore MOVE commands smaller than this (mm).
     # Prevents TCP spam from GELLO encoder jitter.
-    # 0.2 mm is safe for most teleoperation; lower to 0.1 for fine tasks.
-    cmd_deadband_mm: 0.2
+    # Streaming suppression now lives in the driver. Keep this at 0.5 mm for
+    # compatibility with existing launch files and downstream tooling.
+    cmd_deadband_mm: 0.5
 
     # ── Publishing ────────────────────────────────────────────────────────
     # Rate at which ~/joint_state is published (Hz).
     # Match your UR5e RTDE rate for synchronized rosbag2 recording.
-    # Also sets the GETSTATE polling rate on the feedback thread.
+    # Also sets the cmd_measure.lua read / command loop frequency.
     publish_hz: 50.0
 
     # ── State feedback ────────────────────────────────────────────────────
